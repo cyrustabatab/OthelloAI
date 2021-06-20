@@ -150,6 +150,100 @@ class Menu:
         self.start()
 
     
+
+    def get_board_size(self):
+
+        
+
+
+
+        text = self.title_font.render("BOARD SIZE",True,BLACK)
+        top_gap = 50
+        text_rect = text.get_rect(center=(self.screen_width//2,top_gap + text.get_height()//2))
+
+        FLICKERING_EVENT = pygame.USEREVENT + 2
+
+        
+        user_answer = '|'
+
+        user_text = self.title_font.render(user_answer,True,BLACK)
+        width = user_text.get_width()
+
+
+        pygame.time.set_timer(FLICKERING_EVENT,200)
+
+        
+        def get_true_width():
+
+            if user_answer and user_answer[-1] == '|':
+                width= self.title_font.render(user_answer[:-1],True,BLACK).get_width()
+            else:
+                width= self.title_font.render(user_answer,True,BLACK).get_width()
+
+            return width
+
+        backspace_pressed = False
+        while True:
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if event.type == pygame.KEYDOWN:
+                    if pygame.K_0 <= event.key <= pygame.K_9:
+
+
+                        if user_answer and user_answer[-1] == '|':
+                            
+                            user_answer = user_answer[:-1] + chr(event.key) + '|'
+                        else:
+                            user_answer += chr(event.key)
+
+
+                        user_text = self.title_font.render(user_answer,True,BLACK)
+                        width = get_true_width()
+                    elif event.key == pygame.K_RETURN:
+                        if user_answer:
+                            user_answer = user_answer[:-1] if user_answer[-1] == '|' else user_answer
+
+                            return int(user_answer)
+                    elif event.key == pygame.K_BACKSPACE:
+                        if user_answer:
+                            last = user_answer[-1]
+                            if last == '|':
+                                user_answer = user_answer[:-2]
+                            else:
+                                user_answer = user_answer[:-1]
+
+                            user_text = self.title_font.render(user_answer,True,BLACK)
+                            width = get_true_width()
+
+
+
+                if event.type == FLICKERING_EVENT:
+
+                    if user_answer and user_answer[-1] == '|':
+                        user_answer = user_answer[:-1]
+                    else:
+                        user_answer = user_answer + '|'
+
+                    user_text = self.title_font.render(user_answer,True,BLACK)
+                    width = get_true_width()
+            
+
+
+
+
+            self.screen.fill(GREEN)
+            self.screen.blit(text,text_rect)
+
+             
+            self.screen.blit(user_text,(self.screen_width//2 - width//2,self.screen_height//2 - user_text.get_height()//2))
+            pygame.display.update()
+
+
+
+
     
     def ai_or_regular_screen(self):
 
@@ -216,7 +310,9 @@ class Menu:
                         collided = button.collided_on(point)
                         if collided:
                             self.ai_or_regular_screen()
-                            Game(self.screen)
+                            size = self.get_board_size()
+                            pygame.display.set_caption(f"OTHELLO {size} x {size}")
+                            Game(self.screen,size,size)
 
 
 
