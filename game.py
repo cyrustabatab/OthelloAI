@@ -82,12 +82,18 @@ class Game:
         self.board_surface.fill(GREEN)
         self._initialize_board()
         self.play()
-
+    
 
     def _initialize_board(self):
 
 
         self.board = [[None for _ in range(self.cols)] for _ in range(self.rows)]
+
+        self.board[self.rows//2 - 1][self.cols//2 - 1] = 'W'
+        self.board[self.rows//2 - 1][self.cols//2] = 'B'
+        self.board[self.rows//2][self.cols//2 - 1] = 'B'
+        self.board[self.rows//2][self.cols//2] = 'W'
+
 
 
 
@@ -120,6 +126,17 @@ class Game:
 
         for col in range(0,self.board_width + 1,self.square_size):
             pygame.draw.line(self.screen,BLACK,(col,self.TOP_GAP),(col,self.screen_height))
+
+
+        
+
+        for row in range(self.rows):
+            for col in range(self.cols):
+                piece = self.board[row][col]
+                if piece == 'B':
+                    pygame.draw.circle(self.screen,BLACK,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2)
+                elif piece == 'W':
+                    pygame.draw.circle(self.screen,WHITE,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2)
 
 
 
