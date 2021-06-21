@@ -1,4 +1,4 @@
-import pygame,sys
+import pygame,sys,time
 pygame.init()
 
 
@@ -154,8 +154,16 @@ class Menu:
     def get_board_size(self):
 
         
+        
 
+        
+        button_width,button_height = self.title_font.render("START",True,BLACK).get_width() + 10,100
 
+        start_button = Button(self.screen_width//2 - button_width//2,self.screen_height - 200 - button_height//2,button_width,button_height,"START",BLACK,RED,self.title_font)
+
+        button = pygame.sprite.GroupSingle(start_button)
+
+        
 
         text = self.title_font.render("BOARD SIZE",True,BLACK)
         top_gap = 50
@@ -181,9 +189,30 @@ class Menu:
                 width= self.title_font.render(user_answer,True,BLACK).get_width()
 
             return width
+        
+        def backspace_operation():
+            nonlocal user_answer,user_text,width
+            if user_answer and user_answer != '|':
+                last = user_answer[-1]
+                if  last == '|':
+                    user_answer = user_answer[:-2]
+                else:
+                    user_answer = user_answer[:-1]
 
+                user_text = self.title_font.render(user_answer,True,BLACK)
+                width = get_true_width()
+
+        
+        error_font = pygame.font.SysFont("calibri",40)
+        error_message_1 = error_font.render("EVEN SIZED BOARD ONLY!",True,RED)
+        error_message_2 = error_font.render("BOARD SIZE AT LEAST 6!",True,RED)
+        error_message_3 = error_font.render("ENTER A VALUE FOR BOARD SIZE!",True,RED)
+
+        error = False
         backspace_pressed = False
+        errors = []
         while True:
+
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -202,25 +231,12 @@ class Menu:
 
                         user_text = self.title_font.render(user_answer,True,BLACK)
                         width = get_true_width()
-                    elif event.key == pygame.K_RETURN:
-                        if user_answer:
-                            user_answer = user_answer[:-1] if user_answer[-1] == '|' else user_answer
-
-                            return int(user_answer)
                     elif event.key == pygame.K_BACKSPACE:
-                        if user_answer:
-                            last = user_answer[-1]
-                            if last == '|':
-                                user_answer = user_answer[:-2]
-                            else:
-                                user_answer = user_answer[:-1]
-
-                            user_text = self.title_font.render(user_answer,True,BLACK)
-                            width = get_true_width()
+                        backspace_operation()
 
 
 
-                if event.type == FLICKERING_EVENT:
+                elif event.type == FLICKERING_EVENT:
 
                     if user_answer and user_answer[-1] == '|':
                         user_answer = user_answer[:-1]
@@ -229,13 +245,74 @@ class Menu:
 
                     user_text = self.title_font.render(user_answer,True,BLACK)
                     width = get_true_width()
+                if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN):
+                    point = pygame.mouse.get_pos()
+                    collided = True if event.type != pygame.MOUSEBUTTONDOWN else button.sprite.collided_on(point)
+
+                    if collided:
+                        if user_answer and user_answer != '|':
+                            user_answer = user_answer[:-1] if user_answer[-1] == '|' else user_answer
+                            i = int(user_answer)
+
+                            if i % 2:
+                                error = True
+                                error_message = error_message_1
+                                errors.append(error_message_1)
+
+                            if i < 6:
+                                error = True
+                                error_message = error_message_2
+                                errors.append(error_message_2)
+                        else:
+                            error = True
+                            errors.append(error_message_3)
+
+
+
+                        if error:
+                            error_start_time = time.time()
+                        else:
+                            return i
+
+
+
+        
             
+            
+            point = pygame.mouse.get_pos()
+            button.update(point)
+
+            keys_pressed = pygame.key.get_pressed()
 
 
+            if keys_pressed[pygame.K_BACKSPACE]:
+                current_time = time.time()
+                if backspace_pressed and current_time - backspace_pressed_start_time >= 0.1:
+                    backspace_operation()
+                    backspace_pressed_start_time = time.time()
+                elif not backspace_pressed:
+                    backspace_pressed = True
+                    backspace_pressed_start_time = time.time()
+            elif backspace_pressed:
+                backspace_pressed = False
 
+            
 
             self.screen.fill(GREEN)
             self.screen.blit(text,text_rect)
+            
+            if error == True:
+
+                for i,error_message in enumerate(errors):
+                    self.screen.blit(error_message,(self.screen_width//2 - error_message.get_width()//2,self.screen_height - 50  - i * (error_message.get_height() + 20)))
+                current_time = time.time()
+                if current_time - error_start_time >= 2:
+                    errors = []
+                    error = False
+
+            
+
+            button.draw(self.screen)
 
              
             self.screen.blit(user_text,(self.screen_width//2 - width//2,self.screen_height//2 - user_text.get_height()//2))
