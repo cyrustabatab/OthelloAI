@@ -81,6 +81,7 @@ class Game:
         self.board_surface = pygame.Surface((rows * self.square_size,cols * self.square_size))
         self.board_surface.fill(GREEN)
         self._initialize_board()
+        self.turn = 'W'
         self.play()
     
 
@@ -94,7 +95,14 @@ class Game:
         self.board[self.rows//2][self.cols//2 - 1] = 'B'
         self.board[self.rows//2][self.cols//2] = 'W'
 
+    
 
+    def _switch_turns(self):
+
+        if self.turn == 'W':
+            self.turn = 'B'
+        else:
+            self.turn = 'W'
 
 
     def play(self):
@@ -110,6 +118,18 @@ class Game:
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_ESCAPE:
                         return
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    point = pygame.mouse.get_pos()
+                    x,y = point
+                    if y > self.TOP_GAP and x < self.board_width:
+                        row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
+                        if not self.board[row][col]:
+                            self.board[row][col] = self.turn
+                            self._switch_turns()
+
+
+
+
 
             self.screen.fill(BGCOLOR) 
             self.screen.blit(self.board_surface,(0,self.TOP_GAP))
