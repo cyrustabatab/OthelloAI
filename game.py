@@ -104,6 +104,71 @@ class Game:
         else:
             self.turn = 'W'
 
+    
+
+    def _check_validity(self,row,col):
+
+
+        opposite_piece = 'W' if self.turn == 'B' else 'B'
+
+    
+    def _switch_color(self,row,col):
+
+        self.board[row][col] = 'B' if self.board[row][col] == 'W' else 'W'
+
+
+
+
+    
+    def check_up(self,row,col,row_diff,col_diff,opposite_piece):
+
+        
+        
+        in_bounds = lambda row,col: 0 <= row < self.rows and 0 <= col <= self.cols
+        
+
+        current_row = row + row_diff
+        current_col = col + col_diff
+
+
+
+        while in_bounds(row,col) and self.board[row][col] == opposite_piece:
+            current_row += row_diff
+            current_col += col_diff
+        
+        
+
+        if in_bounds(current_row,current_col) and self.board[row][col] == self.turn and abs(current_row - row) != 1 and abs(current_col - col) != 1:
+
+
+            current_row -= row_diff
+            current_col -= col_diff
+
+            while current_row != row and current_col != col:
+                self._switch_turns(current_row,current_col)
+                current_row -= row_diff
+                current_col -= col_diff
+            return True
+
+        else:
+            return False
+
+
+    def check_down(self,row,col,opposite_piece): 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def play(self):
 
@@ -124,6 +189,7 @@ class Game:
                     if y > self.TOP_GAP and x < self.board_width:
                         row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
                         if not self.board[row][col]:
+                            self._check_validity(row,col)
                             self.board[row][col] = self.turn
                             self._switch_turns()
 
