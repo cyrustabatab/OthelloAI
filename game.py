@@ -63,6 +63,7 @@ class Game:
 
     TOP_GAP = 100
     RIGHT_GAP = 250
+    font = pygame.font.SysFont("calibri",50,bold=True)
     def __init__(self,screen,rows=8,cols=8,ai=False):
         
 
@@ -79,11 +80,17 @@ class Game:
 
         self.ai = ai
         self.board_surface = pygame.Surface((rows * self.square_size,cols * self.square_size))
+        self.surface = pygame.Surface((self.square_size,self.square_size),pygame.SRCALPHA)
         self.board_surface.fill(GREEN)
         self._initialize_board()
         self.turn = 'W'
+        self.transparent_color = (255,255,255,128)
+        self.mapping = {'W': ('WHITE',WHITE),'B': ("BLACK",BLACK)}
+        self.turn_text = self.font.render(self.mapping[self.turn][0]+'\'S TURN',True,self.mapping[self.turn][1])
         self.play()
     
+
+
 
     def _initialize_board(self):
 
@@ -101,15 +108,31 @@ class Game:
 
         if self.turn == 'W':
             self.turn = 'B'
+            self.transparent_color = (0,0,0,128)
         else:
             self.turn = 'W'
+            self.transparent_color = (255,255,255,128)
+        
 
+        self.turn_text = self.font.render(self.mapping[self.turn][0] + 'S TURN',True,self.mapping[self.turn][1])
     
 
     def _check_validity(self,row,col):
 
 
         opposite_piece = 'W' if self.turn == 'B' else 'B'
+
+        valid_move = False
+        for i in (-1,0,1):
+            for j in (-1,0,1):
+                if i == 0 and j == 0:
+                    continue
+
+                valid_move = self._check(row,col,i,j,opposite_piece) or valid_move
+
+
+        return valid_move
+
 
     
     def _switch_color(self,row,col):
@@ -120,11 +143,11 @@ class Game:
 
 
     
-    def check_up(self,row,col,row_diff,col_diff,opposite_piece):
+    def _check(self,row,col,row_diff,col_diff,opposite_piece):
 
         
         
-        in_bounds = lambda row,col: 0 <= row < self.rows and 0 <= col <= self.cols
+        in_bounds = lambda row,col: 0 <= row < self.rows and 0 <= col < self.cols
         
 
         current_row = row + row_diff
@@ -132,35 +155,26 @@ class Game:
 
 
 
-        while in_bounds(row,col) and self.board[row][col] == opposite_piece:
+        while in_bounds(current_row,current_col) and self.board[current_row][current_col] == opposite_piece:
             current_row += row_diff
             current_col += col_diff
         
         
 
-        if in_bounds(current_row,current_col) and self.board[row][col] == self.turn and abs(current_row - row) != 1 and abs(current_col - col) != 1:
+        if in_bounds(current_row,current_col) and self.board[current_row][current_col] == self.turn and abs(current_row - row) != 1 and abs(current_col - col) != 1:
 
 
             current_row -= row_diff
             current_col -= col_diff
 
-            while current_row != row and current_col != col:
-                self._switch_turns(current_row,current_col)
+            while current_row != row or current_col != col:
+                self._switch_color(current_row,current_col)
                 current_row -= row_diff
                 current_col -= col_diff
             return True
 
         else:
             return False
-
-
-    def check_down(self,row,col,opposite_piece): 
-
-
-
-
-
-
 
 
 
@@ -189,17 +203,32 @@ class Game:
                     if y > self.TOP_GAP and x < self.board_width:
                         row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
                         if not self.board[row][col]:
-                            self._check_validity(row,col)
-                            self.board[row][col] = self.turn
-                            self._switch_turns()
+                            if self._check_validity(row,col):
+                                self.board[row][col] = self.turn
+                                self._switch_turns()
 
-
-
+        
 
 
             self.screen.fill(BGCOLOR) 
+            
+            self.board_surface.fill(GREEN)
+            x,y = pygame.mouse.get_pos()
+
+
+            if pygame.mouse.get_focused() and x <= self.board_width and y >= self.TOP_GAP:
+
+                y -= self.TOP_GAP
+
+                pygame.draw.circle(self.surface,self.transparent_color,(self.square_size//2,self.square_size//2),self.square_size//2)
+
+
+                self.board_surface.blit(self.surface,(x//self.square_size * self.square_size,y//self.square_size * self.square_size))
+
             self.screen.blit(self.board_surface,(0,self.TOP_GAP))
             self.draw_board()
+
+            self.screen.blit(self.turn_text,(self.board_width//2 - self.turn_text.get_width()//2,50))
             pygame.display.update()
 
 
