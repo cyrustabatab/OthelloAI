@@ -87,6 +87,8 @@ class Game:
         self.transparent_color = (255,255,255,128)
         self.mapping = {'W': ('WHITE',WHITE),'B': ("BLACK",BLACK)}
         self.turn_text = self.font.render(self.mapping[self.turn][0]+'\'S TURN',True,self.mapping[self.turn][1])
+        self.invalid_text = self.font.render("INVALID MOVE!",True,RED)
+        self._find_valid_moves()
         self.play()
     
 
@@ -117,18 +119,27 @@ class Game:
         self.turn_text = self.font.render(self.mapping[self.turn][0] + 'S TURN',True,self.mapping[self.turn][1])
     
 
-    def _check_validity(self,row,col):
+    def _check_validity(self,row,col,checking=False):
 
 
         opposite_piece = 'W' if self.turn == 'B' else 'B'
 
         valid_move = False
+
+        
+        if checking:
+            valid_squares = set()
+
         for i in (-1,0,1):
             for j in (-1,0,1):
                 if i == 0 and j == 0:
                     continue
+                
 
-                valid_move = self._check(row,col,i,j,opposite_piece) or valid_move
+                valid =  self._check(row,col,i,j,opposite_piece,checking)
+                if checking and valid:
+                    return True
+                valid_move = valid or valid_move
 
 
         return valid_move
@@ -143,7 +154,7 @@ class Game:
 
 
     
-    def _check(self,row,col,row_diff,col_diff,opposite_piece):
+    def _check(self,row,col,row_diff,col_diff,opposite_piece,checking):
 
         
         
@@ -163,14 +174,15 @@ class Game:
 
         if in_bounds(current_row,current_col) and self.board[current_row][current_col] == self.turn and abs(current_row - row) != 1 and abs(current_col - col) != 1:
 
-
-            current_row -= row_diff
-            current_col -= col_diff
-
-            while current_row != row or current_col != col:
-                self._switch_color(current_row,current_col)
+            
+            if not checking:
                 current_row -= row_diff
                 current_col -= col_diff
+
+                while current_row != row or current_col != col:
+                    self._switch_color(current_row,current_col)
+                    current_row -= row_diff
+                    current_col -= col_diff
             return True
 
         else:
@@ -180,13 +192,25 @@ class Game:
 
 
 
+    
+    def _find_valid_moves(self):
 
+        
+        self.valid_moves = set()
+
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if self.board[row][col] is None:
+                    if self._check_validity(row,col,checking=True):
+                        self.valid_moves.add((row,col))
 
 
 
     def play(self):
 
-
+        
+        
+        invalid_move = False
         while True:
 
 
@@ -202,12 +226,23 @@ class Game:
                     x,y = point
                     if y > self.TOP_GAP and x < self.board_width:
                         row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
-                        if not self.board[row][col]:
-                            if self._check_validity(row,col):
-                                self.board[row][col] = self.turn
-                                self._switch_turns()
+                        
+                        if (row,col) in self.valid_moves:
+                            self._check_validity(row,col)
+                            self.board[row][col] = self.turn
+                            self._switch_turns()
+                            self._find_valid_moves()
+                            invalid_move = False
+                        else:
+                            invalid_move = True
+                            invalid_start = time.time()
 
         
+            
+            if invalid_move:
+                current_time = time.time()
+                if current_time - invalid_start >= 1.5:
+                    invalid_move = False
 
 
             self.screen.fill(BGCOLOR) 
@@ -228,7 +263,12 @@ class Game:
             self.screen.blit(self.board_surface,(0,self.TOP_GAP))
             self.draw_board()
 
-            self.screen.blit(self.turn_text,(self.board_width//2 - self.turn_text.get_width()//2,50))
+
+            if not invalid_move:
+                self.screen.blit(self.turn_text,(self.board_width//2 - self.turn_text.get_width()//2,50))
+            else:
+                self.screen.blit(self.invalid_text,(self.board_width//2 - self.invalid_text.get_width()//2,50))
+
             pygame.display.update()
 
 
@@ -252,6 +292,9 @@ class Game:
                     pygame.draw.circle(self.screen,BLACK,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2)
                 elif piece == 'W':
                     pygame.draw.circle(self.screen,WHITE,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2)
+                elif (row,col) in self.valid_moves:
+                    pygame.draw.circle(self.screen,RED,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),10)
+
 
 
 
