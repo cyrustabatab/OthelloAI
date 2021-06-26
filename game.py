@@ -9,6 +9,7 @@ SCREEN_HEIGHT = SCREEN_WIDTH =  800
 
 
 BGCOLOR = (231,255,208)
+BGCOLOR = (222,184,135)
 GREEN = (0,190,0)
 WHITE = (255,) * 3
 BLACK = (0,) * 3
@@ -64,6 +65,7 @@ class Game:
     TOP_GAP = 100
     RIGHT_GAP = 250
     font = pygame.font.SysFont("calibri",50,bold=True)
+    score_font = pygame.font.SysFont("calibri",40,bold=True)
     def __init__(self,screen,rows=8,cols=8,ai=False):
         
 
@@ -84,6 +86,10 @@ class Game:
         self.board_surface.fill(GREEN)
         self._initialize_board()
         self.turn = 'W'
+        self.black_score = self.white_score = 2
+
+        self.black_score_text = self.score_font.render(f"{2:<3}",True,BLACK)
+        self.white_score_text = self.score_font.render(f"{2:<3}",True,WHITE)
         self.transparent_color = (255,255,255,128)
         self.mapping = {'W': ('WHITE',WHITE),'B': ("BLACK",BLACK)}
         self.turn_text = self.font.render(self.mapping[self.turn][0]+'\'S TURN',True,self.mapping[self.turn][1])
@@ -147,8 +153,19 @@ class Game:
 
     
     def _switch_color(self,row,col):
+        
 
-        self.board[row][col] = 'B' if self.board[row][col] == 'W' else 'W'
+
+        if self.board[row][col] == 'W':
+            self.board[row][col] = 'B'
+            self.white_score -= 1
+            self.black_score += 1
+        else:
+            self.board[row][col] = 'W'
+            self.white_score += 1
+            self.black_score -= 1
+
+
 
 
 
@@ -204,6 +221,27 @@ class Game:
                     if self._check_validity(row,col,checking=True):
                         self.valid_moves.add((row,col))
 
+    
+
+
+    def _draw_score(self):
+
+
+        radius = 30
+        pygame.draw.circle(self.screen,BLACK,(self.screen_width - self.black_score_text.get_width() - radius,radius + 5),radius)
+        pygame.draw.circle(self.screen,WHITE,(self.screen_width - self.black_score_text.get_width() - radius,3 * radius +5+ radius//2  ),radius)
+
+
+        self.screen.blit(self.black_score_text,(self.screen_width - 2 * self.black_score_text.get_width() - 2 * radius,5 + radius//2 ))
+        self.screen.blit(self.white_score_text,(self.screen_width - 2 * self.white_score_text.get_width() - 2 * radius,5 + 2 * radius + radius//2 ))
+
+
+
+
+
+
+
+
 
 
     def play(self):
@@ -230,6 +268,14 @@ class Game:
                         if (row,col) in self.valid_moves:
                             self._check_validity(row,col)
                             self.board[row][col] = self.turn
+                            if self.turn == 'W':
+                                self.white_score += 1
+                            else:
+                                self.black_score += 1
+                            
+                            self.white_score_text = self.score_font.render(f"{self.white_score:<3}",True,BLACK)
+                            self.black_score_text = self.score_font.render(f"{self.black_score:<3}",True,BLACK)
+
                             self._switch_turns()
                             self._find_valid_moves()
                             invalid_move = False
@@ -262,6 +308,7 @@ class Game:
 
             self.screen.blit(self.board_surface,(0,self.TOP_GAP))
             self.draw_board()
+            self._draw_score()
 
 
             if not invalid_move:
