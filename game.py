@@ -62,6 +62,9 @@ class Game:
     RIGHT_GAP = 250
     font = pygame.font.SysFont("calibri",50,bold=True)
     score_font = pygame.font.SysFont("calibri",40,bold=True)
+    music = "music.ogg"
+    invalid_move_effect = pygame.mixer.Sound("wrong.wav")
+    place_effect = pygame.mixer.Sound("pop_sound.wav")
     def __init__(self,screen,rows=8,cols=8,ai=False):
         
 
@@ -92,6 +95,8 @@ class Game:
         self.turn_text = self.font.render(self.mapping[self.turn][0]+'\'S TURN',True,self.mapping[self.turn][1])
         self.invalid_text = self.font.render("INVALID MOVE!",True,RED)
         self._find_valid_moves()
+        pygame.mixer.music.load(self.music)
+        pygame.mixer.music.play(-1)
         self.play()
     
 
@@ -284,9 +289,9 @@ class Game:
                     if not self.game_over:
                         if y > self.TOP_GAP and x < self.board_width:
                             row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
-                            
                             if (row,col) in self.valid_moves:
                                 self._check_validity(row,col)
+                                self.place_effect.play() 
                                 self.board[row][col] = self.turn
                                 if self.turn == 'W':
                                     self.white_score += 1
@@ -306,6 +311,7 @@ class Game:
                                     self.game_over= True
                                 invalid_move = False
                             else:
+                                self.invalid_move_effect.play()
                                 invalid_move = True
                                 invalid_start = time.time()
                     else:
@@ -394,7 +400,9 @@ class Menu:
     
     
     title_font = pygame.font.SysFont("calibri",100)
+    
 
+    music_file = "mainmenu.ogg"
 
     def __init__(self,screen_width=800,screen_height=800):
         
@@ -410,6 +418,8 @@ class Menu:
         self.title_text = self.title_font.render("OTHELLO",True,BLACK)
 
         pygame.display.set_caption("OTHELLO")
+        pygame.mixer.music.load(self.music_file)
+        pygame.mixer.music.play(-1)
         self.start()
 
     
