@@ -15,11 +15,7 @@ WHITE = (255,) * 3
 BLACK = (0,) * 3
 RED = (255,0,0)
 
-
-
-
 class Button(pygame.sprite.Sprite):
-
 
     def __init__(self,x,y,button_width,button_height,text,text_color,button_color,font):
         super().__init__()
@@ -87,6 +83,7 @@ class Game:
         self._initialize_board()
         self.turn = 'W'
         self.black_score = self.white_score = 2
+        self.game_over = False
 
         self.black_score_text = self.score_font.render(f"{2:<3}",True,BLACK)
         self.white_score_text = self.score_font.render(f"{2:<3}",True,WHITE)
@@ -235,11 +232,19 @@ class Game:
         self.screen.blit(self.black_score_text,(self.screen_width - 2 * self.black_score_text.get_width() - 2 * radius,5 + radius//2 ))
         self.screen.blit(self.white_score_text,(self.screen_width - 2 * self.white_score_text.get_width() - 2 * radius,5 + 2 * radius + radius//2 ))
 
+    
+    
+    def _reset(self):
 
 
-
-
-
+        self.turn = 'W'
+        self.turn_text = self.font.render(self.mapping[self.turn][0] + 'S TURN',True,self.mapping[self.turn][1])
+        self.white_score = self.black_score = 2
+        self.white_score_text = self.score_font.render(f"{2:<3}",True,WHITE)
+        self.black_score_text = self.score_font.render(f"{2:<3}",True,BLACK)
+        self._initialize_board()
+        self.game_over= False
+        self._find_valid_moves()
 
 
 
@@ -248,7 +253,19 @@ class Game:
 
         
         
-        invalid_move = False
+        button_width = 200
+        button_height = 100
+        font = pygame.font.SysFont("calibri",30)
+        play_again_button = Button(self.screen_width - (self.screen_width - self.board_width)//2 - button_width//2,self.screen_height//2 - button_height//2,button_width,button_height,"PLAY AGAIN",WHITE,BLACK,font)
+        gap = 50
+        menu_button = Button(self.screen_width - (self.screen_width - self.board_width)//2 - button_width//2,self.screen_height//2+ button_height//2 + gap + button_height//2,button_width,button_height,"MENU",WHITE,BLACK,font)
+
+
+        game_buttons = pygame.sprite.Group(play_again_button,menu_button)
+
+
+        invalid_move = game_over = False
+
         while True:
 
 
@@ -260,28 +277,45 @@ class Game:
                     if event.key == pygame.K_ESCAPE:
                         return
                 elif event.type == pygame.MOUSEBUTTONDOWN:
+
                     point = pygame.mouse.get_pos()
                     x,y = point
-                    if y > self.TOP_GAP and x < self.board_width:
-                        row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
-                        
-                        if (row,col) in self.valid_moves:
-                            self._check_validity(row,col)
-                            self.board[row][col] = self.turn
-                            if self.turn == 'W':
-                                self.white_score += 1
-                            else:
-                                self.black_score += 1
-                            
-                            self.white_score_text = self.score_font.render(f"{self.white_score:<3}",True,BLACK)
-                            self.black_score_text = self.score_font.render(f"{self.black_score:<3}",True,BLACK)
 
-                            self._switch_turns()
-                            self._find_valid_moves()
-                            invalid_move = False
-                        else:
-                            invalid_move = True
-                            invalid_start = time.time()
+                    if not self.game_over:
+                        if y > self.TOP_GAP and x < self.board_width:
+                            row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
+                            
+                            if (row,col) in self.valid_moves:
+                                self._check_validity(row,col)
+                                self.board[row][col] = self.turn
+                                if self.turn == 'W':
+                                    self.white_score += 1
+                                else:
+                                    self.black_score += 1
+                                
+                                self.white_score_text = self.score_font.render(f"{self.white_score:<3}",True,BLACK)
+                                self.black_score_text = self.score_font.render(f"{self.black_score:<3}",True,BLACK)
+
+                                self._switch_turns()
+                                self._find_valid_moves()
+                                if not self.valid_moves:
+                                    winner = 'BLACK WINS' if self.black_score > self.white_score else 'WHITE WINS' if self.white_score > self.black_score else 'TIE'
+                                    winner_text= self.font.render(winner,True,BLACK if winner[0] == 'B' else WHITE)
+
+
+                                    self.game_over= True
+                                invalid_move = False
+                            else:
+                                invalid_move = True
+                                invalid_start = time.time()
+                    else:
+
+                        for i,button in enumerate(game_buttons):
+                            if button.collided_on(point):
+                                if i == 0:
+                                    self._reset()
+                                else:
+                                    return
 
         
             
@@ -297,7 +331,7 @@ class Game:
             x,y = pygame.mouse.get_pos()
 
 
-            if pygame.mouse.get_focused() and x <= self.board_width and y >= self.TOP_GAP:
+            if not self.game_over and pygame.mouse.get_focused() and x <= self.board_width and y >= self.TOP_GAP:
 
                 y -= self.TOP_GAP
 
@@ -311,10 +345,17 @@ class Game:
             self._draw_score()
 
 
-            if not invalid_move:
-                self.screen.blit(self.turn_text,(self.board_width//2 - self.turn_text.get_width()//2,50))
+            if not self.game_over:
+                if not invalid_move:
+                    self.screen.blit(self.turn_text,(self.board_width//2 - self.turn_text.get_width()//2,50))
+                else:
+                    self.screen.blit(self.invalid_text,(self.board_width//2 - self.invalid_text.get_width()//2,50))
             else:
-                self.screen.blit(self.invalid_text,(self.board_width//2 - self.invalid_text.get_width()//2,50))
+                point = pygame.mouse.get_pos()
+                game_buttons.update(point)
+
+                self.screen.blit(winner_text,(self.board_width//2 - winner_text.get_width()//2,50))
+                game_buttons.draw(self.screen)
 
             pygame.display.update()
 
@@ -481,7 +522,7 @@ class Menu:
                                 error_message = error_message_1
                                 errors.append(error_message_1)
 
-                            if i < 6:
+                            if i < 4: #6
                                 error = True
                                 error_message = error_message_2
                                 errors.append(error_message_2)
@@ -612,6 +653,7 @@ class Menu:
                             size = self.get_board_size()
                             pygame.display.set_caption(f"OTHELLO {size} x {size}")
                             Game(self.screen,size,size)
+                            self.screen = pygame.display.set_mode((self.screen_width,self.screen_height))
 
 
 
