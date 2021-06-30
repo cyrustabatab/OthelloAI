@@ -1,4 +1,4 @@
-import pygame,sys,time
+import pygame,sys,time,random
 pygame.init()
 
 
@@ -65,8 +65,10 @@ class Game:
     music = "music.ogg"
     invalid_move_effect = pygame.mixer.Sound("wrong.wav")
     place_effect = pygame.mixer.Sound("pop_sound.wav")
+    win_sound = pygame.mixer.Sound("win.wav")
+    tie_sound = pygame.mixer.Sound("tie.wav")
+
     def __init__(self,screen,rows=8,cols=8,ai=False):
-        
 
 
 
@@ -84,14 +86,29 @@ class Game:
         self.surface = pygame.Surface((self.square_size,self.square_size),pygame.SRCALPHA)
         self.board_surface.fill(GREEN)
         self._initialize_board()
+
+
+        self.ai = ai
         self.turn = 'W'
+        if ai:
+            self.computer_piece = random.choice(['W','B'])
+            self.user_piece = 'W' if self.computer_piece == 'B' else 'B'
         self.black_score = self.white_score = 2
         self.game_over = False
 
         self.black_score_text = self.score_font.render(f"{2:<3}",True,BLACK)
         self.white_score_text = self.score_font.render(f"{2:<3}",True,WHITE)
         self.transparent_color = (255,255,255,128)
-        self.mapping = {'W': ('WHITE',WHITE),'B': ("BLACK",BLACK)}
+        if not ai:
+            self.mapping = {'W': ('WHITE',WHITE),'B': ("BLACK",BLACK)}
+        else:
+            computer_color,user_color = (WHITE,BLACK) if self.computer_piece == 'W' else (BLACK,WHITE)
+            self.mapping = {self.computer_piece: ('AI',computer_color),self.user_piece: ('PLAYER',user_color)}
+
+
+
+
+
         self.turn_text = self.font.render(self.mapping[self.turn][0]+'\'S TURN',True,self.mapping[self.turn][1])
         self.invalid_text = self.font.render("INVALID MOVE!",True,RED)
         self._find_valid_moves()
@@ -209,8 +226,19 @@ class Game:
 
 
 
+    
+    def _ai_make_move(self):
+        # for now make a random move but obviously make smarter ai in the end
 
 
+        return self._make_random_move()
+    
+
+    def _make_random_move(self):
+
+
+        moves = list(self.valid_moves)
+        return random.choice(moves)
     
     def _find_valid_moves(self):
 
@@ -270,7 +298,8 @@ class Game:
 
 
         invalid_move = game_over = False
-
+        
+        ai_start = None
         while True:
 
 
@@ -286,7 +315,7 @@ class Game:
                     point = pygame.mouse.get_pos()
                     x,y = point
 
-                    if not self.game_over:
+                    if not self.game_over and (not self.ai or (self.ai and self.user_piece == self.turn)):
                         if y > self.TOP_GAP and x < self.board_width:
                             row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
                             if (row,col) in self.valid_moves:
@@ -304,7 +333,12 @@ class Game:
                                 self._switch_turns()
                                 self._find_valid_moves()
                                 if not self.valid_moves:
-                                    winner = 'BLACK WINS' if self.black_score > self.white_score else 'WHITE WINS' if self.white_score > self.black_score else 'TIE'
+                                    winner = 'BLACK WINS!' if self.black_score > self.white_score else 'WHITE WINS!' if self.white_score > self.black_score else 'TIE'
+
+                                    if winner == 'TIE':
+                                        self.tie_sound.play()
+                                    else:
+                                        self.win_sound.play()
                                     winner_text= self.font.render(winner,True,BLACK if winner[0] == 'B' else WHITE)
 
 
@@ -322,7 +356,41 @@ class Game:
                                     self._reset()
                                 else:
                                     return
+            
 
+
+            if not self.game_over and self.ai and self.turn == self.computer_piece:
+                if not ai_start:
+                    ai_start= time.time()
+                else:
+                    current_time = time.time()
+                    if current_time - ai_start >= 1:
+                        row,col = self._ai_make_move()
+                        self._check_validity(row,col)
+                        self.place_effect.play() 
+                        self.board[row][col] = self.turn
+                        ai_start = None
+                        if self.turn == 'W':
+                            self.white_score += 1
+                        else:
+                            self.black_score += 1
+                        
+                        self.white_score_text = self.score_font.render(f"{self.white_score:<3}",True,BLACK)
+                        self.black_score_text = self.score_font.render(f"{self.black_score:<3}",True,BLACK)
+
+                        self._switch_turns()
+                        self._find_valid_moves()
+                        if not self.valid_moves:
+                            winner = 'BLACK WINS!' if self.black_score > self.white_score else 'WHITE WINS!' if self.white_score > self.black_score else 'TIE'
+
+                            if winner == 'TIE':
+                                self.tie_sound.play()
+                            else:
+                                self.win_sound.play()
+                            winner_text= self.font.render(winner,True,BLACK if winner[0] == 'B' else WHITE)
+
+
+                            self.game_over= True
         
             
             if invalid_move:
@@ -337,7 +405,7 @@ class Game:
             x,y = pygame.mouse.get_pos()
 
 
-            if not self.game_over and pygame.mouse.get_focused() and x <= self.board_width and y >= self.TOP_GAP:
+            if not self.game_over and (not self.ai or (self.ai and self.user_piece == self.turn)) and pygame.mouse.get_focused() and x <= self.board_width and y >= self.TOP_GAP:
 
                 y -= self.TOP_GAP
 
@@ -626,8 +694,10 @@ class Menu:
                     point = pygame.mouse.get_pos()
 
 
-                    if buttons_list[0].collided_on(point):
-                        return
+                    
+                    for i,button in enumerate(buttons_list):
+                        if button.collided_on(point):
+                            return i
 
 
 
@@ -659,10 +729,11 @@ class Menu:
                     for i,button in enumerate(self.buttons):
                         collided = button.collided_on(point)
                         if collided:
-                            self.ai_or_regular_screen()
+                            mode = self.ai_or_regular_screen()
                             size = self.get_board_size()
                             pygame.display.set_caption(f"OTHELLO {size} x {size}")
-                            Game(self.screen,size,size)
+                            Game(self.screen,size,size,ai=True if mode==1 else False)
+                            pygame.display.set_caption("OTHELLO")
                             self.screen = pygame.display.set_mode((self.screen_width,self.screen_height))
 
 
@@ -683,6 +754,24 @@ class Menu:
             pygame.display.update()
 
 
+    
+
+
+
+
+
+class GameAI(Game):
+
+
+    def __init__(self,screen,rows=8,cols=8):
+        super().__init__(screen,rows,cols)
+
+
+
+
+
+
+        
 
 
 
