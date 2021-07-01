@@ -75,11 +75,13 @@ class Game:
         self.rows = rows
         self.cols = cols
         
+
         self.square_size = (screen.get_height() - self.TOP_GAP)//self.rows
         self.screen_height = self.square_size * rows + self.TOP_GAP
         self.screen_width = self.square_size * cols + self.RIGHT_GAP
         self.board_width = self.square_size * cols
         self.screen = pygame.display.set_mode((self.screen_width,self.screen_height))
+        self.circle_gap = self.square_size//2 - 10
 
         self.ai = ai
         self.board_surface = pygame.Surface((rows * self.square_size,cols * self.square_size))
@@ -161,7 +163,7 @@ class Game:
                     continue
                 
 
-                valid =  self._check(row,col,i,j,opposite_piece,checking)
+                valid =  self._check(board,row,col,i,j,opposite_piece,checking)
                 if checking and valid:
                     return True
                 valid_move = valid or valid_move
@@ -224,31 +226,106 @@ class Game:
         else:
             return False
 
+    
+    
+
+
+
+    
+    def _is_terminal_state(board):
+
+
+        return not self._get_moves(board)
+
+
+
+    def _get_moves(self,board):
+        pass
+
+
+
+
+
+
+
+        
+
+
+    
+
+    def _heuristic(self):
+        pass
+
+
+
+
 
 
     
     def _ai_make_move(self):
         # for now make a random move but obviously make smarter ai in the end
-
+        
+        self.previous_white_score,self.previous_black_score = j
 
         return self._make_random_move()
     
 
+
+    def _minimax(self,board,depth=5,ai=True):
+
+        if self._is_terminal_state(board) or depth == 0:
+            return self._heuristic(board)
+
+
+
+        if ai:
+            best_score = float("-inf")
+            comparator = lambda x,y: x > y
+        else:
+            comparator = lambda x,y: x < y
+            best_score = float("inf")
+        best_move = None
+        
+        for move in self._get_moves(board):
+            new_board = self._make_move(board)
+            score,_ = self._minimax(new_board,depth -1,not ai)
+            if comparator(score,maximum):
+                best_score = score
+                best_move = move
+        
+
+        return best_score,best_move
+
+
+
+
+                
+
+
+
+
+
+
+
+
     def _make_random_move(self):
 
-
+        
         moves = list(self.valid_moves)
         return random.choice(moves)
     
-    def _find_valid_moves(self):
+    def _find_valid_moves(self,checking=False):
 
         
         self.valid_moves = set()
 
+
         for row in range(self.rows):
             for col in range(self.cols):
                 if self.board[row][col] is None:
-                    if self._check_validity(row,col,checking=True):
+                    if self._check_validity(board,row,col,checking=True):
+                        if checking:
+                            return False
                         self.valid_moves.add((row,col))
 
     
@@ -409,7 +486,7 @@ class Game:
 
                 y -= self.TOP_GAP
 
-                pygame.draw.circle(self.surface,self.transparent_color,(self.square_size//2,self.square_size//2),self.square_size//2)
+                pygame.draw.circle(self.surface,self.transparent_color,(self.square_size//2,self.square_size//2),self.circle_gap)
 
 
                 self.board_surface.blit(self.surface,(x//self.square_size * self.square_size,y//self.square_size * self.square_size))
@@ -451,9 +528,9 @@ class Game:
             for col in range(self.cols):
                 piece = self.board[row][col]
                 if piece == 'B':
-                    pygame.draw.circle(self.screen,BLACK,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2)
+                    pygame.draw.circle(self.screen,BLACK,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2 - 10)
                 elif piece == 'W':
-                    pygame.draw.circle(self.screen,WHITE,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2)
+                    pygame.draw.circle(self.screen,WHITE,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2 - 10)
                 elif (row,col) in self.valid_moves:
                     pygame.draw.circle(self.screen,RED,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),10)
 
@@ -755,6 +832,92 @@ class Menu:
 
 
     
+
+class Board:
+
+
+    def __init__(self,board):
+        self.board = board
+        self.rows = len(self.board)
+        self.cols = len(self.board[0])
+
+    
+
+    def get_valid_moves(self,current_piece,opposite_piece):
+
+        valid_moves = set()
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if self.board[row][col] is None:
+                    for row_diff in (-1,0,1):
+                        for col_diff in (-1,0,1):
+                            if row_diff == 0 and col_diff == 0:
+                                continue
+                            if self_._check(row,col,row_diff,col_diff,current_piece,opposite_piece):
+                                valid_moves.add((row,col))
+
+        
+
+        return valid_moves
+
+
+
+    def _check(self,row,col,row_diff,col_diff,current_piece,opposite_piece,checking=True):
+
+        
+    
+
+
+        in_bounds = lambda row,col: 0 <= row < self.rows and 0 <= col < self.cols
+        
+
+        current_row = row + row_diff
+        current_col = col + col_diff
+
+
+
+        while in_bounds(current_row,current_col) and self.board[current_row][current_col] == opposite_piece:
+            current_row += row_diff
+            current_col += col_diff
+        
+        
+
+        if in_bounds(current_row,current_col) and self.board[current_row][current_col] == current_piece and abs(current_row - row) != 1 and abs(current_col - col) != 1:
+        
+            if not checking:
+                current_row -= row_diff
+                current_col -= col_diff
+
+                while current_row != row or current_col != col:
+                    self._switch_color(current_row,current_col,user_piece)
+                    current_row -= row_diff
+                    current_col -= col_diff
+            return True
+
+        else:
+            return False
+
+    
+
+    def _switch_color(self,row,col,user_piece):
+        self.board[row][col] = user_piece
+
+
+    def _make_move(self,row,col,user_piece,opposite_piece): 
+
+
+        for row_diff in (-1,0,1):
+            for col_diff in (-1,0,1):
+                self._check(row,col,row_diff,col_diff,user_piece,opposite_piece,checking=False)
+
+
+
+     
+    def _no_more_moves(self):
+        return not self.get_valid_moves()
+
+    
+
 
 
 
