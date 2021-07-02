@@ -110,10 +110,11 @@ class Game:
 
 
 
-
+        
+        self.get_opposite = lambda: 'W' if self.turn == 'B' else 'B'
         self.turn_text = self.font.render(self.mapping[self.turn][0]+'\'S TURN',True,self.mapping[self.turn][1])
         self.invalid_text = self.font.render("INVALID MOVE!",True,RED)
-        self._find_valid_moves()
+        self.valid_moves = self.board.get_valid_moves(self.turn,self.get_opposite())
         pygame.mixer.music.load(self.music)
         pygame.mixer.music.play(-1)
         self.play()
@@ -124,12 +125,8 @@ class Game:
     def _initialize_board(self):
 
 
-        self.board = [[None for _ in range(self.cols)] for _ in range(self.rows)]
+        self.board = Board(self.rows,self.cols)
 
-        self.board[self.rows//2 - 1][self.cols//2 - 1] = 'W'
-        self.board[self.rows//2 - 1][self.cols//2] = 'B'
-        self.board[self.rows//2][self.cols//2 - 1] = 'B'
-        self.board[self.rows//2][self.cols//2] = 'W'
 
     
 
@@ -163,7 +160,7 @@ class Game:
                     continue
                 
 
-                valid =  self._check(board,row,col,i,j,opposite_piece,checking)
+                valid =  self.board.check(board,row,col,i,j,opposite_piece,checking)
                 if checking and valid:
                     return True
                 valid_move = valid or valid_move
@@ -254,7 +251,14 @@ class Game:
     
 
     def _heuristic(self):
-        pass
+
+
+
+        user_pieces= self.board.get_number_of_pieces(self.user_piece)
+        computer_pieces = self.board.get_number_of_pieces(self.computer_piece)
+
+
+        return computer_pieces - user_pieces
 
 
 
@@ -265,7 +269,6 @@ class Game:
     def _ai_make_move(self):
         # for now make a random move but obviously make smarter ai in the end
         
-        self.previous_white_score,self.previous_black_score = j
 
         return self._make_random_move()
     
@@ -323,7 +326,7 @@ class Game:
         for row in range(self.rows):
             for col in range(self.cols):
                 if self.board[row][col] is None:
-                    if self._check_validity(board,row,col,checking=True):
+                    if self._check_validity(row,col,checking=True):
                         if checking:
                             return False
                         self.valid_moves.add((row,col))
@@ -376,6 +379,8 @@ class Game:
 
         invalid_move = game_over = False
         
+
+        get_opposite_piece = lambda: 'W' if self.turn == 'B' else 'B'
         ai_start = None
         while True:
 
@@ -396,19 +401,22 @@ class Game:
                         if y > self.TOP_GAP and x < self.board_width:
                             row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
                             if (row,col) in self.valid_moves:
-                                self._check_validity(row,col)
+                                switches = self.board.make_move(row,col,self.turn,self.get_opposite())
+
                                 self.place_effect.play() 
-                                self.board[row][col] = self.turn
+                                self.board.set_piece(row,col,self.turn)
                                 if self.turn == 'W':
                                     self.white_score += 1
+                                    self.black_score -= switches
                                 else:
                                     self.black_score += 1
+                                    self.white_score -= switches
                                 
                                 self.white_score_text = self.score_font.render(f"{self.white_score:<3}",True,BLACK)
                                 self.black_score_text = self.score_font.render(f"{self.black_score:<3}",True,BLACK)
 
                                 self._switch_turns()
-                                self._find_valid_moves()
+                                self.valid_moves = self.board.get_valid_moves(self.turn,self.get_opposite())
                                 if not self.valid_moves:
                                     winner = 'BLACK WINS!' if self.black_score > self.white_score else 'WHITE WINS!' if self.white_score > self.black_score else 'TIE'
 
@@ -445,7 +453,7 @@ class Game:
                         row,col = self._ai_make_move()
                         self._check_validity(row,col)
                         self.place_effect.play() 
-                        self.board[row][col] = self.turn
+                        self.board.set_piece(row,col,self.turn)
                         ai_start = None
                         if self.turn == 'W':
                             self.white_score += 1
@@ -456,7 +464,7 @@ class Game:
                         self.black_score_text = self.score_font.render(f"{self.black_score:<3}",True,BLACK)
 
                         self._switch_turns()
-                        self._find_valid_moves()
+                        self.valid_moves = self.board.get_valid_moves()
                         if not self.valid_moves:
                             winner = 'BLACK WINS!' if self.black_score > self.white_score else 'WHITE WINS!' if self.white_score > self.black_score else 'TIE'
 
@@ -524,9 +532,10 @@ class Game:
 
         
 
+
         for row in range(self.rows):
             for col in range(self.cols):
-                piece = self.board[row][col]
+                piece = self.board.getPiece(row,col)
                 if piece == 'B':
                     pygame.draw.circle(self.screen,BLACK,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2 - 10)
                 elif piece == 'W':
@@ -534,6 +543,132 @@ class Game:
                 elif (row,col) in self.valid_moves:
                     pygame.draw.circle(self.screen,RED,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),10)
 
+
+
+
+class Board:
+
+
+    def __init__(self,rows,cols):
+
+
+        self.board = [[None for _ in range(cols)] for _ in range(rows)]
+
+        self.rows = rows
+        self.cols = cols
+
+        self.board[self.rows//2 - 1][self.cols//2 - 1] = 'W'
+        self.board[self.rows//2 - 1][self.cols//2] = 'B'
+        self.board[self.rows//2][self.cols//2 - 1] = 'B'
+        self.board[self.rows//2][self.cols//2] = 'W'
+        self.piece_counts = {'B': 2,'W': 2}
+
+    
+
+
+    def get_number_of_pieces(self,piece):
+
+        count = 0
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if self.board[row][col] == piece:
+                    count += 1
+
+        return count
+        
+    
+
+    def __copy__(self,memo):
+        new_board = Board(self.rows,self.cols)
+        new_board.__dict__.update(self.__dict__)
+        new_board.board = copy.deepcopy(self.board)
+        return new_board
+
+
+    def get_valid_moves(self,current_piece,opposite_piece):
+
+        valid_moves = set()
+        for row in range(self.rows):
+            for col in range(self.cols):
+                if self.board[row][col] is None:
+                    for row_diff in (-1,0,1):
+                        for col_diff in (-1,0,1):
+                            if row_diff == 0 and col_diff == 0:
+                                continue
+                            if self._check(row,col,row_diff,col_diff,current_piece,opposite_piece)[0]:
+                                valid_moves.add((row,col))
+
+        
+
+        return valid_moves
+
+    
+
+    def set_piece(self,row,col,piece):
+        self.board[row][col] = piece
+
+    def _check(self,row,col,row_diff,col_diff,current_piece,opposite_piece,checking=True):
+
+        
+    
+        
+        switches = 0
+
+        in_bounds = lambda row,col: 0 <= row < self.rows and 0 <= col < self.cols
+        
+
+        current_row = row + row_diff
+        current_col = col + col_diff
+
+
+
+        while in_bounds(current_row,current_col) and self.board[current_row][current_col] == opposite_piece:
+            current_row += row_diff
+            current_col += col_diff
+        
+        
+
+        if in_bounds(current_row,current_col) and self.board[current_row][current_col] == current_piece and abs(current_row - row) != 1 and abs(current_col - col) != 1:
+        
+            if not checking:
+                current_row -= row_diff
+                current_col -= col_diff
+                while current_row != row or current_col != col:
+                    self._switch_color(current_row,current_col,current_piece)
+                    
+                    switches += 1
+                    self.piece_counts[current_piece] += 1
+                    self.piece_counts[opposite_piece] -= 1
+                    current_row -= row_diff
+                    current_col -= col_diff
+            return True,switches
+
+        else:
+            return False,switches
+
+    
+
+    def _switch_color(self,row,col,user_piece):
+        self.board[row][col] = user_piece
+
+
+    def make_move(self,row,col,user_piece,opposite_piece): 
+
+
+        for row_diff in (-1,0,1):
+            for col_diff in (-1,0,1):
+                return self._check(row,col,row_diff,col_diff,user_piece,opposite_piece,checking=False)[1]
+
+        
+        self.piece_counts[user_piece] += 1
+    
+    def getPiece(self,row,col):
+        return self.board[row][col]
+     
+    def _no_more_moves(self):
+        return not self.get_valid_moves()
+
+    
 
 
 
@@ -832,93 +967,6 @@ class Menu:
 
 
     
-
-class Board:
-
-
-    def __init__(self,board):
-        self.board = board
-        self.rows = len(self.board)
-        self.cols = len(self.board[0])
-
-    
-
-    def get_valid_moves(self,current_piece,opposite_piece):
-
-        valid_moves = set()
-        for row in range(self.rows):
-            for col in range(self.cols):
-                if self.board[row][col] is None:
-                    for row_diff in (-1,0,1):
-                        for col_diff in (-1,0,1):
-                            if row_diff == 0 and col_diff == 0:
-                                continue
-                            if self_._check(row,col,row_diff,col_diff,current_piece,opposite_piece):
-                                valid_moves.add((row,col))
-
-        
-
-        return valid_moves
-
-
-
-    def _check(self,row,col,row_diff,col_diff,current_piece,opposite_piece,checking=True):
-
-        
-    
-
-
-        in_bounds = lambda row,col: 0 <= row < self.rows and 0 <= col < self.cols
-        
-
-        current_row = row + row_diff
-        current_col = col + col_diff
-
-
-
-        while in_bounds(current_row,current_col) and self.board[current_row][current_col] == opposite_piece:
-            current_row += row_diff
-            current_col += col_diff
-        
-        
-
-        if in_bounds(current_row,current_col) and self.board[current_row][current_col] == current_piece and abs(current_row - row) != 1 and abs(current_col - col) != 1:
-        
-            if not checking:
-                current_row -= row_diff
-                current_col -= col_diff
-
-                while current_row != row or current_col != col:
-                    self._switch_color(current_row,current_col,user_piece)
-                    current_row -= row_diff
-                    current_col -= col_diff
-            return True
-
-        else:
-            return False
-
-    
-
-    def _switch_color(self,row,col,user_piece):
-        self.board[row][col] = user_piece
-
-
-    def _make_move(self,row,col,user_piece,opposite_piece): 
-
-
-        for row_diff in (-1,0,1):
-            for col_diff in (-1,0,1):
-                self._check(row,col,row_diff,col_diff,user_piece,opposite_piece,checking=False)
-
-
-
-     
-    def _no_more_moves(self):
-        return not self.get_valid_moves()
-
-    
-
-
 
 
 
