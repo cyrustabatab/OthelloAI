@@ -402,9 +402,8 @@ class Game:
                             row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
                             if (row,col) in self.valid_moves:
                                 switches = self.board.make_move(row,col,self.turn,self.get_opposite())
-
                                 self.place_effect.play() 
-                                self.board.set_piece(row,col,self.turn)
+                                #self.board.set_piece(row,col,self.turn)
                                 if self.turn == 'W':
                                     self.white_score += 1
                                     self.black_score -= switches
@@ -412,8 +411,8 @@ class Game:
                                     self.black_score += 1
                                     self.white_score -= switches
                                 
-                                self.white_score_text = self.score_font.render(f"{self.white_score:<3}",True,BLACK)
-                                self.black_score_text = self.score_font.render(f"{self.black_score:<3}",True,BLACK)
+                                self.white_score_text = self.score_font.render(f"{self.board.get_white_count():<3}",True,BLACK)
+                                self.black_score_text = self.score_font.render(f"{self.board.get_black_count():<3}",True,BLACK)
 
                                 self._switch_turns()
                                 self.valid_moves = self.board.get_valid_moves(self.turn,self.get_opposite())
@@ -578,6 +577,14 @@ class Board:
         
     
 
+    def get_black_count(self):
+        return self.piece_counts['B']
+
+
+    def get_white_count(self):
+        return self.piece_counts['W']
+
+
     def __copy__(self,memo):
         new_board = Board(self.rows,self.cols)
         new_board.__dict__.update(self.__dict__)
@@ -653,14 +660,16 @@ class Board:
 
 
     def make_move(self,row,col,user_piece,opposite_piece): 
+        #function assumes move is already valid
 
-
+        switches = 0
         for row_diff in (-1,0,1):
             for col_diff in (-1,0,1):
-                return self._check(row,col,row_diff,col_diff,user_piece,opposite_piece,checking=False)[1]
+                switches +=  self._check(row,col,row_diff,col_diff,user_piece,opposite_piece,checking=False)[1]
 
-        
+        self.board[row][col] = user_piece 
         self.piece_counts[user_piece] += 1
+        return switches
     
     def getPiece(self,row,col):
         return self.board[row][col]
