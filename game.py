@@ -361,6 +361,31 @@ class Game:
 
 
 
+    def _check_after_move(self):
+        #self.board.set_piece(row,col,self.turn)
+        self.place_effect.play() 
+        ai_start = None
+        if self.turn == 'W':
+            self.white_score += 1
+        else:
+            self.black_score += 1
+        
+        self.white_score_text = self.score_font.render(f"{self.board.get_white_count():<3}",True,BLACK)
+        self.black_score_text = self.score_font.render(f"{self.board.get_black_count():<3}",True,BLACK)
+
+        self._switch_turns()
+        self.valid_moves = self.board.get_valid_moves(self.turn,self.get_opposite())
+        if not self.valid_moves:
+            winner = 'BLACK WINS!' if self.black_score > self.white_score else 'WHITE WINS!' if self.white_score > self.black_score else 'TIE'
+
+            if winner == 'TIE':
+                self.tie_sound.play()
+            else:
+                self.win_sound.play()
+            self.winner_text= self.font.render(winner,True,BLACK if winner[0] == 'B' else WHITE)
+
+
+            self.game_over= True
 
     def play(self):
 
@@ -379,6 +404,7 @@ class Game:
 
         invalid_move = game_over = False
         
+
 
         get_opposite_piece = lambda: 'W' if self.turn == 'B' else 'B'
         ai_start = None
@@ -402,31 +428,8 @@ class Game:
                             row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
                             if (row,col) in self.valid_moves:
                                 switches = self.board.make_move(row,col,self.turn,self.get_opposite())
-                                self.place_effect.play() 
+                                self._check_after_move()
                                 #self.board.set_piece(row,col,self.turn)
-                                if self.turn == 'W':
-                                    self.white_score += 1
-                                    self.black_score -= switches
-                                else:
-                                    self.black_score += 1
-                                    self.white_score -= switches
-                                
-                                self.white_score_text = self.score_font.render(f"{self.board.get_white_count():<3}",True,BLACK)
-                                self.black_score_text = self.score_font.render(f"{self.board.get_black_count():<3}",True,BLACK)
-
-                                self._switch_turns()
-                                self.valid_moves = self.board.get_valid_moves(self.turn,self.get_opposite())
-                                if not self.valid_moves:
-                                    winner = 'BLACK WINS!' if self.black_score > self.white_score else 'WHITE WINS!' if self.white_score > self.black_score else 'TIE'
-
-                                    if winner == 'TIE':
-                                        self.tie_sound.play()
-                                    else:
-                                        self.win_sound.play()
-                                    winner_text= self.font.render(winner,True,BLACK if winner[0] == 'B' else WHITE)
-
-
-                                    self.game_over= True
                                 invalid_move = False
                             else:
                                 self.invalid_move_effect.play()
@@ -450,31 +453,9 @@ class Game:
                     current_time = time.time()
                     if current_time - ai_start >= 1:
                         row,col = self._ai_make_move()
-                        self._check_validity(row,col)
-                        self.place_effect.play() 
-                        self.board.set_piece(row,col,self.turn)
-                        ai_start = None
-                        if self.turn == 'W':
-                            self.white_score += 1
-                        else:
-                            self.black_score += 1
-                        
-                        self.white_score_text = self.score_font.render(f"{self.white_score:<3}",True,BLACK)
-                        self.black_score_text = self.score_font.render(f"{self.black_score:<3}",True,BLACK)
-
-                        self._switch_turns()
-                        self.valid_moves = self.board.get_valid_moves()
-                        if not self.valid_moves:
-                            winner = 'BLACK WINS!' if self.black_score > self.white_score else 'WHITE WINS!' if self.white_score > self.black_score else 'TIE'
-
-                            if winner == 'TIE':
-                                self.tie_sound.play()
-                            else:
-                                self.win_sound.play()
-                            winner_text= self.font.render(winner,True,BLACK if winner[0] == 'B' else WHITE)
-
-
-                            self.game_over= True
+                        switches = self.board.make_move(row,col,self.turn,self.get_opposite())
+                        self._check_after_move()
+                        ai_start= False
         
             
             if invalid_move:
@@ -512,7 +493,7 @@ class Game:
                 point = pygame.mouse.get_pos()
                 game_buttons.update(point)
 
-                self.screen.blit(winner_text,(self.board_width//2 - winner_text.get_width()//2,50))
+                self.screen.blit(self.winner_text,(self.board_width//2 - self.winner_text.get_width()//2,50))
                 game_buttons.draw(self.screen)
 
             pygame.display.update()
@@ -566,14 +547,8 @@ class Board:
 
 
     def get_number_of_pieces(self,piece):
-
-        count = 0
-        for row in range(self.rows):
-            for col in range(self.cols):
-                if self.board[row][col] == piece:
-                    count += 1
-
-        return count
+        
+        return self.piece_counts[piece]
         
     
 
