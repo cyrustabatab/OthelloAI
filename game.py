@@ -14,6 +14,23 @@ GREEN = (0,190,0)
 WHITE = (255,) * 3
 BLACK = (0,) * 3
 RED = (255,0,0)
+YELLOW = (255,255,0)
+
+
+class Back(pygame.sprite.Sprite):
+
+    image_file = "back.png"
+    def __init__(self,x,y,size=40):
+        super().__init__()
+
+        self.image = pygame.transform.scale(pygame.image.load(self.image_file).convert_alpha(),(size,size))
+        self.rect = self.image.get_rect(topleft=(x,y))
+
+    
+    def clicked_on(self,point):
+
+        return self.rect.collidepoint(point)
+
 
 class Button(pygame.sprite.Sprite):
 
@@ -56,6 +73,10 @@ class Button(pygame.sprite.Sprite):
 
         return self.rect.collidepoint(point)
 
+
+
+
+
 class Game:
 
     TOP_GAP = 100
@@ -68,7 +89,7 @@ class Game:
     win_sound = pygame.mixer.Sound("win.wav")
     tie_sound = pygame.mixer.Sound("tie.wav")
 
-    def __init__(self,screen,rows=8,cols=8,ai=False):
+    def __init__(self,screen,back_button,rows=8,cols=8,ai=False):
 
 
 
@@ -82,7 +103,8 @@ class Game:
         self.board_width = self.square_size * cols
         self.screen = pygame.display.set_mode((self.screen_width,self.screen_height))
         self.circle_gap = self.square_size//2 - 10
-
+        
+        self.back_button = back_button
         self.ai = ai
         self.board_surface = pygame.Surface((rows * self.square_size,cols * self.square_size))
         self.surface = pygame.Surface((self.square_size,self.square_size),pygame.SRCALPHA)
@@ -407,6 +429,7 @@ class Game:
 
 
         get_opposite_piece = lambda: 'W' if self.turn == 'B' else 'B'
+        switched = set()
         ai_start = None
         while True:
 
@@ -421,16 +444,19 @@ class Game:
                 elif event.type == pygame.MOUSEBUTTONDOWN:
 
                     point = pygame.mouse.get_pos()
+                    if self.back_button.sprite.clicked_on(point):
+                        return
                     x,y = point
 
                     if not self.game_over and (not self.ai or (self.ai and self.user_piece == self.turn)):
                         if y > self.TOP_GAP and x < self.board_width:
                             row,col = (y - self.TOP_GAP)//self.square_size,x//self.square_size 
                             if (row,col) in self.valid_moves:
-                                switches = self.board.make_move(row,col,self.turn,self.get_opposite())
+                                switches,switched = self.board.make_move(row,col,self.turn,self.get_opposite())
                                 self._check_after_move()
                                 #self.board.set_piece(row,col,self.turn)
                                 invalid_move = False
+                                #switched = None
                             else:
                                 self.invalid_move_effect.play()
                                 invalid_move = True
@@ -453,7 +479,7 @@ class Game:
                     current_time = time.time()
                     if current_time - ai_start >= 1:
                         row,col = self._ai_make_move()
-                        switches = self.board.make_move(row,col,self.turn,self.get_opposite())
+                        switches,switched = self.board.make_move(row,col,self.turn,self.get_opposite())
                         self._check_after_move()
                         ai_start= False
         
@@ -480,9 +506,9 @@ class Game:
                 self.board_surface.blit(self.surface,(x//self.square_size * self.square_size,y//self.square_size * self.square_size))
 
             self.screen.blit(self.board_surface,(0,self.TOP_GAP))
-            self.draw_board()
+            self.draw_board(switched)
             self._draw_score()
-
+            self.back_button.draw(self.screen)
 
             if not self.game_over:
                 if not invalid_move:
@@ -499,7 +525,7 @@ class Game:
             pygame.display.update()
 
 
-    def draw_board(self):
+    def draw_board(self,switched):
 
 
         for row in range(self.TOP_GAP,self.screen_height,self.square_size):
@@ -516,12 +542,17 @@ class Game:
         for row in range(self.rows):
             for col in range(self.cols):
                 piece = self.board.getPiece(row,col)
+                if switched and (row,col) in switched:
+                    pygame.draw.rect(self.screen,YELLOW,(col * self.square_size,self.TOP_GAP + row * self.square_size,self.square_size,self.square_size),5)
+
+
                 if piece == 'B':
                     pygame.draw.circle(self.screen,BLACK,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2 - 10)
                 elif piece == 'W':
                     pygame.draw.circle(self.screen,WHITE,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),self.square_size//2 - 10)
                 elif (row,col) in self.valid_moves:
                     pygame.draw.circle(self.screen,RED,(col * self.square_size + self.square_size//2,self.TOP_GAP + row * self.square_size + self.square_size//2),10)
+
 
 
 
@@ -589,7 +620,7 @@ class Board:
     def set_piece(self,row,col,piece):
         self.board[row][col] = piece
 
-    def _check(self,row,col,row_diff,col_diff,current_piece,opposite_piece,checking=True):
+    def _check(self,row,col,row_diff,col_diff,current_piece,opposite_piece,switched=None,checking=True):
 
         
     
@@ -617,7 +648,7 @@ class Board:
                 current_col -= col_diff
                 while current_row != row or current_col != col:
                     self._switch_color(current_row,current_col,current_piece)
-                    
+                    switched.add((current_row,current_col))              
                     switches += 1
                     self.piece_counts[current_piece] += 1
                     self.piece_counts[opposite_piece] -= 1
@@ -638,13 +669,16 @@ class Board:
         #function assumes move is already valid
 
         switches = 0
+        switched = set()
         for row_diff in (-1,0,1):
             for col_diff in (-1,0,1):
-                switches +=  self._check(row,col,row_diff,col_diff,user_piece,opposite_piece,checking=False)[1]
+                _,num_switches=  self._check(row,col,row_diff,col_diff,user_piece,opposite_piece,switched,checking=False)
+                switches += num_switches
 
         self.board[row][col] = user_piece 
+        switched.add((row,col))
         self.piece_counts[user_piece] += 1
-        return switches
+        return switches,switched
     
     def getPiece(self,row,col):
         return self.board[row][col]
@@ -680,7 +714,7 @@ class Menu:
 
         self.buttons = pygame.sprite.Group(start_button)
         self.title_text = self.title_font.render("OTHELLO",True,BLACK)
-
+        self.back_button = pygame.sprite.GroupSingle(Back(0,0))
         pygame.display.set_caption("OTHELLO")
         pygame.mixer.music.load(self.music_file)
         pygame.mixer.music.play(-1)
@@ -691,6 +725,8 @@ class Menu:
     def get_board_size(self):
 
         
+
+
         
 
         
@@ -784,6 +820,8 @@ class Menu:
                     width = get_true_width()
                 if event.type == pygame.MOUSEBUTTONDOWN or (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN):
                     point = pygame.mouse.get_pos()
+                    if event.type == pygame.MOUSEBUTTONDOWN and self.back_button.sprite.clicked_on(point):
+                        return 
                     collided = True if event.type != pygame.MOUSEBUTTONDOWN else button.sprite.collided_on(point)
 
                     if collided:
@@ -853,6 +891,7 @@ class Menu:
 
              
             self.screen.blit(user_text,(self.screen_width//2 - width//2,self.screen_height//2 - user_text.get_height()//2))
+            self.back_button.draw(self.screen)
             pygame.display.update()
 
 
@@ -889,7 +928,8 @@ class Menu:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     point = pygame.mouse.get_pos()
 
-
+                    if self.back_button.sprite.clicked_on(point):
+                        return
                     
                     for i,button in enumerate(buttons_list):
                         if button.collided_on(point):
@@ -903,6 +943,7 @@ class Menu:
             
             self.screen.fill(GREEN)
             buttons.draw(self.screen)
+            self.back_button.draw(self.screen)
             pygame.display.update()
 
     def start(self):
@@ -926,11 +967,13 @@ class Menu:
                         collided = button.collided_on(point)
                         if collided:
                             mode = self.ai_or_regular_screen()
-                            size = self.get_board_size()
-                            pygame.display.set_caption(f"OTHELLO {size} x {size}")
-                            Game(self.screen,size,size,ai=True if mode==1 else False)
-                            pygame.display.set_caption("OTHELLO")
-                            self.screen = pygame.display.set_mode((self.screen_width,self.screen_height))
+                            if mode is not None:
+                                size = self.get_board_size()
+                                if size:
+                                    pygame.display.set_caption(f"OTHELLO {size} x {size}")
+                                    Game(self.screen,self.back_button,size,size,ai=True if mode==1 else False)
+                                    pygame.display.set_caption("OTHELLO")
+                                    self.screen = pygame.display.set_mode((self.screen_width,self.screen_height))
 
 
 
