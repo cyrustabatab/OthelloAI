@@ -1,4 +1,6 @@
 import pygame,sys,time,random
+import copy
+
 pygame.init()
 
 
@@ -139,7 +141,6 @@ class Game:
         self.valid_moves = self.board.get_valid_moves(self.turn,self.get_opposite())
         pygame.mixer.music.load(self.music)
         pygame.mixer.music.play(-1)
-        self.play()
     
 
 
@@ -272,12 +273,22 @@ class Game:
 
     
 
-    def _heuristic(self):
+    def _heuristic(self,board,winner):
+        
 
 
+        
+        user_pieces= board.get_number_of_pieces(self.user_piece)
+        computer_pieces = board.get_number_of_pieces(self.computer_piece)
 
-        user_pieces= self.board.get_number_of_pieces(self.user_piece)
-        computer_pieces = self.board.get_number_of_pieces(self.computer_piece)
+
+        if winner:
+            if computer_pieces > user_pieces:
+                return 100
+            elif user_pieces > computer_pieces:
+                return -100
+            else:
+                return 0 
 
 
         return computer_pieces - user_pieces
@@ -292,29 +303,36 @@ class Game:
         # for now make a random move but obviously make smarter ai in the end
         
 
+        return self._minimax(self.board)[1]
+
         return self._make_random_move()
     
 
 
-    def _minimax(self,board,depth=5,ai=True):
-
-        if self._is_terminal_state(board) or depth == 0:
-            return self._heuristic(board)
-
-
-
+    def _minimax(self,board,depth=3,ai=True):
+        
         if ai:
             best_score = float("-inf")
             comparator = lambda x,y: x > y
+            current_piece,opposite_piece = self.computer_piece,self.user_piece
         else:
             comparator = lambda x,y: x < y
             best_score = float("inf")
+            current_piece,opposite_piece = self.user_piece,self.computer_piece
+
+        moves = board.get_valid_moves(current_piece,opposite_piece)
+        if  not moves or depth == 0:
+            return self._heuristic(board,not moves),None
+
+
+
         best_move = None
         
-        for move in self._get_moves(board):
-            new_board = self._make_move(board)
+        for move in board.get_valid_moves(current_piece,opposite_piece):
+            new_board = copy.copy(board)
+            new_board.make_move(*move,self.user_piece,self.computer_piece)
             score,_ = self._minimax(new_board,depth -1,not ai)
-            if comparator(score,maximum):
+            if comparator(score,best_score):
                 best_score = score
                 best_move = move
         
@@ -445,7 +463,7 @@ class Game:
 
                     point = pygame.mouse.get_pos()
                     if self.back_button.sprite.clicked_on(point):
-                        return
+                        return 'back'
                     x,y = point
 
                     if not self.game_over and (not self.ai or (self.ai and self.user_piece == self.turn)):
@@ -591,9 +609,10 @@ class Board:
         return self.piece_counts['W']
 
 
-    def __copy__(self,memo):
+    def __copy__(self):
         new_board = Board(self.rows,self.cols)
         new_board.__dict__.update(self.__dict__)
+        new_board.piece_counts = copy.copy(self.piece_counts)
         new_board.board = copy.deepcopy(self.board)
         return new_board
 
@@ -966,14 +985,19 @@ class Menu:
                     for i,button in enumerate(self.buttons):
                         collided = button.collided_on(point)
                         if collided:
-                            mode = self.ai_or_regular_screen()
-                            if mode is not None:
-                                size = self.get_board_size()
-                                if size:
-                                    pygame.display.set_caption(f"OTHELLO {size} x {size}")
-                                    Game(self.screen,self.back_button,size,size,ai=True if mode==1 else False)
-                                    pygame.display.set_caption("OTHELLO")
-                                    self.screen = pygame.display.set_mode((self.screen_width,self.screen_height))
+
+                            while True:
+                                mode = self.ai_or_regular_screen()
+                                if mode is not None:
+                                    size = self.get_board_size()
+                                    if size:
+                                        pygame.display.set_caption(f"OTHELLO {size} x {size}")
+                                        type_ = Game(self.screen,self.back_button,size,size,ai=True if mode==1 else False).play()
+                                        pygame.display.set_caption("OTHELLO")
+                                        self.screen = pygame.display.set_mode((self.screen_width,self.screen_height))
+                                        if type_ == 'back':
+                                            continue
+                                        break
 
 
 
